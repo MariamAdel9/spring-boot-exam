@@ -1,0 +1,131 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
+
+func main() {
+	arg := os.Args
+
+	if len(arg) < 2 {
+		fmt.Println("Please provide an argument.")
+		os.Exit(1)
+	}
+
+	// Combine all arguments (words) into one string (excluding the program name)
+	fullInput := strings.Join(arg[1:], " ")
+
+	r := []rune(fullInput)
+
+	// Slice to hold ASCII art lines for each character
+	var asciiArts [][]string
+
+	for j := 0; j < len(r); j++ {
+		var art string
+		var err error
+
+		if string(r[j]) == " " {
+			// If the character is a space, create blank lines
+			art = createBlankSpace(5, 5) // Adjust width and height as needed
+		} else {
+			art, err = readfile("letters.txt", string(r[j]))
+
+			if err != nil {
+				fmt.Print(err)
+				break
+			}
+		}
+
+		// Split the ASCII art into lines and add it to the list
+		asciiArtLines := strings.Split(art, "\n")
+		asciiArts = append(asciiArts, asciiArtLines)
+	}
+
+	// Determine the maximum number of lines in the ASCII art (height of the tallest character)
+	maxLines := getMaxLines(asciiArts)
+
+	// Ensure each character's ASCII art has the same baseline (pad shorter ones)
+	for i := 0; i < len(asciiArts); i++ {
+		// Calculate how much padding is needed to align with the baseline
+		diff := maxLines - len(asciiArts[i])
+		if diff > 0 {
+			// Add top padding only, so the character aligns at the baseline (bottom)
+			for p := 0; p < diff; p++ {
+				asciiArts[i] = append([]string{strings.Repeat(" ", len(asciiArts[i][0]))}, asciiArts[i]...)
+			}
+		}
+	}
+
+	// Print the ASCII art row by row, aligning the characters horizontally
+	for i := 0; i < maxLines; i++ {
+		for j := 0; j < len(asciiArts); j++ {
+			fmt.Print(asciiArts[j][i]) // Print the current line of the character
+			fmt.Print("  ")            // Space between characters
+		}
+		fmt.Println()
+	}
+}
+
+// Function to read the ASCII art for a given character from the file
+func readfile(filename, char string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var artBuilder strings.Builder
+	var foundChar bool
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Check if the line starts with the desired character
+		if strings.HasPrefix(line, char+":") {
+			foundChar = true
+			continue // Skip the line with the character identifier
+		}
+
+		// If the character has been found, collect its ASCII art
+		if foundChar {
+			if line == "" || strings.HasSuffix(line, ":") {
+				break // End the current character's art when encountering another character identifier or blank line
+			}
+			artBuilder.WriteString(line + "\n")
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	if artBuilder.Len() == 0 {
+		return "", fmt.Errorf("character %s not found", char)
+	}
+
+	return artBuilder.String(), nil
+}
+
+// Function to get the maximum number of lines across all ASCII art characters
+func getMaxLines(asciiArts [][]string) int {
+	maxLines := 0
+	for _, art := range asciiArts {
+		if len(art) > maxLines {
+			maxLines = len(art)
+		}
+	}
+	return maxLines
+}
+
+// Function to create a blank space of the given height and width
+func createBlankSpace(width, height int) string {
+	var builder strings.Builder
+	for i := 0; i < height; i++ {
+		builder.WriteString(strings.Repeat(" ", width) + "\n")
+	}
+	return builder.String()
+}
